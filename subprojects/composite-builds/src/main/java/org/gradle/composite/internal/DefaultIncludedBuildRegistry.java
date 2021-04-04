@@ -52,7 +52,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-@ServiceScope(Scopes.BuildTree.class)
 public class DefaultIncludedBuildRegistry implements BuildStateRegistry, Stoppable {
     private final BuildTreeState owner;
     private final IncludedBuildFactory includedBuildFactory;
