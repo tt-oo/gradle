@@ -148,15 +148,28 @@ public class DefaultGradleLauncher implements GradleLauncher {
                 buildOptionBuildOperationProgressEventsEmitter.emit(gradle.getStartParameter());
             }
             if (upTo == Stage.RunTasks) {
+                prepareTaskGraph();
                 runWork();
-            } else if (upTo == Stage.TaskGraph && configurationCache.canLoad()) {
-                doConfigurationCacheBuild();
+            } else if (upTo == Stage.TaskGraph) {
+                prepareTaskGraph();
             } else {
                 doClassicBuildStages(upTo);
             }
         } catch (Throwable t) {
             finishBuild(upTo.getDisplayName(), t);
         }
+    }
+
+    private void prepareTaskGraph() {
+        if (stage == Stage.TaskGraph) {
+            return;
+        }
+        if (configurationCache.canLoad()) {
+            doLoadTaskGraphFromCache();
+        } else {
+            doClassicBuildStages(Stage.TaskGraph);
+        }
+        stage = Stage.TaskGraph;
     }
 
     private void doClassicBuildStages(Stage upTo) {
@@ -175,9 +188,8 @@ public class DefaultGradleLauncher implements GradleLauncher {
         configurationCache.save();
     }
 
-    private void doConfigurationCacheBuild() {
+    private void doLoadTaskGraphFromCache() {
         configurationCache.load();
-        stage = Stage.TaskGraph;
     }
 
     private void finishBuild(String action, @Nullable Throwable stageFailure) {

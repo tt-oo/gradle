@@ -74,7 +74,7 @@ class DefaultNestedBuild extends AbstractBuildState implements StandAloneNestedB
     public <T> T run(Function<? super BuildController, T> buildAction) {
         // Create a wrapper for the controllers, to prevent the build controller from finishing any other builds
         IncludedBuildControllers controllers = gradleLauncher.getGradle().getServices().get(IncludedBuildControllers.class);
-        IncludedBuildControllers noFinishController = new NoFinishIncludedBuildControllers(controllers);
+        IncludedBuildControllers noFinishController = new DoNoFinishIncludedBuildControllers(controllers);
         GradleBuildController buildController = new GradleBuildController(gradleLauncher, noFinishController);
         try {
             return buildAction.apply(buildController);
@@ -113,10 +113,10 @@ class DefaultNestedBuild extends AbstractBuildState implements StandAloneNestedB
         return gradleLauncher.getGradle();
     }
 
-    private static class NoFinishIncludedBuildControllers implements IncludedBuildControllers {
+    private static class DoNoFinishIncludedBuildControllers implements IncludedBuildControllers {
         private final IncludedBuildControllers controllers;
 
-        public NoFinishIncludedBuildControllers(IncludedBuildControllers controllers) {
+        public DoNoFinishIncludedBuildControllers(IncludedBuildControllers controllers) {
             this.controllers = controllers;
         }
 
