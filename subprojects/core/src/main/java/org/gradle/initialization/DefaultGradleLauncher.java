@@ -118,9 +118,13 @@ public class DefaultGradleLauncher implements GradleLauncher {
     }
 
     @Override
-    public GradleInternal executeTasks() {
+    public void scheduleRequestedTasks() {
+        doBuildStages(Stage.TaskGraph);
+    }
+
+    @Override
+    public void executeTasks() {
         doBuildStages(Stage.RunTasks);
-        return gradle;
     }
 
     @Override
@@ -143,8 +147,9 @@ public class DefaultGradleLauncher implements GradleLauncher {
             if (stage == null && gradle.isRootBuild()) {
                 buildOptionBuildOperationProgressEventsEmitter.emit(gradle.getStartParameter());
             }
-
-            if (upTo == Stage.RunTasks && configurationCache.canLoad()) {
+            if (upTo == Stage.RunTasks) {
+                runWork();
+            } else if (upTo == Stage.TaskGraph && configurationCache.canLoad()) {
                 doConfigurationCacheBuild();
             } else {
                 doClassicBuildStages(upTo);
@@ -167,18 +172,12 @@ public class DefaultGradleLauncher implements GradleLauncher {
             return;
         }
         prepareTaskExecution();
-        if (upTo == Stage.TaskGraph) {
-            return;
-        }
         configurationCache.save();
-        runWork();
     }
 
-    @SuppressWarnings("deprecation")
     private void doConfigurationCacheBuild() {
         configurationCache.load();
         stage = Stage.TaskGraph;
-        runWork();
     }
 
     private void finishBuild(String action, @Nullable Throwable stageFailure) {
