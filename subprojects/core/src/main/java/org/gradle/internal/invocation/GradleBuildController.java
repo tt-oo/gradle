@@ -79,6 +79,8 @@ public class GradleBuildController implements BuildController, Stoppable {
             List<Throwable> failures = new ArrayList<>();
             try {
                 launcher.executeTasks();
+            } catch (MultipleBuildFailures e) {
+                failures.addAll(e.getCauses());
             } catch (Exception e) {
                 failures.add(e);
             }
