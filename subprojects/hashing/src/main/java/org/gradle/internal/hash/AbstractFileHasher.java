@@ -31,7 +31,7 @@ public abstract class AbstractFileHasher implements FileHasher {
         this.streamHasher = streamHasher;
     }
 
-    protected InputStream getInputStream(File file) {
+    protected InputStream getDefaultInputStream(File file) {
         try {
             return new FileInputStream(file);
         } catch (FileNotFoundException e) {

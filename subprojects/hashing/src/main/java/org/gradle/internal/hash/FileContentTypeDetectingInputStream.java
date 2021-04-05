@@ -19,24 +19,30 @@ package org.gradle.internal.hash;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class BinaryDetectingInputStream extends InputStream {
+/**
+ * Infers whether a file is a binary file or not by checking if there is a NUL character
+ * in the first 8000 bytes of the file.  This is based on the heuristic used by git:
+ * https://git.kernel.org/pub/scm/git/git.git/tree/xdiff-interface.c?h=v2.30.0#n187
+ */
+public class FileContentTypeDetectingInputStream extends InputStream {
     private final InputStream delegate;
-    private boolean binaryFile = true;
+    private FileContentType contentType = FileContentType.BINARY;
+    long count;
 
-    public BinaryDetectingInputStream(InputStream delegate) {
+    public FileContentTypeDetectingInputStream(InputStream delegate) {
         this.delegate = delegate;
     }
 
     @Override
     public int read() throws IOException {
         int next = delegate.read();
-        if (next == 0) {
-            binaryFile = false;
+        if (count++ < 8000 && next == 0) {
+            contentType = FileContentType.TEXT;
         }
         return next;
     }
 
-    public boolean isBinaryFile() {
-        return binaryFile;
+    public FileContentType getContentType() {
+        return contentType;
     }
 }

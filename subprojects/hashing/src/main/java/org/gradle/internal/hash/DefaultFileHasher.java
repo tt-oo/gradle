@@ -25,6 +25,6 @@ public class DefaultFileHasher extends AbstractFileHasher {
 
     @Override
     public HashCode hash(File file) {
-        return hash(getInputStream(file));
+        return hash(getDefaultInputStream(file));
     }
 }

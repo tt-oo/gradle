@@ -16,18 +16,7 @@
 
 package org.gradle.internal.hash;
 
-import java.io.File;
-
-/**
- * A {@link FileHasher} that normalizes line endings.
- */
-public class LineEndingNormalizationFileHasher extends AbstractFileHasher {
-    public LineEndingNormalizationFileHasher(StreamHasher streamHasher) {
-        super(streamHasher);
-    }
-
-    @Override
-    public HashCode hash(File file) {
-        return hash(new LineEndingNormalizingInputStream(getDefaultInputStream(file)));
-    }
+public interface FileContentTypeCacheService {
+    FileContentType getFileContentType(HashCode hashCode);
+    void storeContentType(HashCode hashCode, FileContentType contentType);
 }
