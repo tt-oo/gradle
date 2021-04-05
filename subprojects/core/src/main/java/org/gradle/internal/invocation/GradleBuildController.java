@@ -45,6 +45,13 @@ public class GradleBuildController implements BuildController, Stoppable {
         this.exceptionAnalyser = exceptionAnalyser;
     }
 
+    public GradleBuildController(GradleLauncher gradleLauncher, IncludedBuildControllers includedBuildControllers) {
+        this(gradleLauncher,
+            gradleLauncher.getGradle().getServices().get(WorkerLeaseService.class),
+            includedBuildControllers,
+            gradleLauncher.getGradle().getServices().get(ExceptionAnalyser.class));
+    }
+
     public GradleBuildController(GradleLauncher gradleLauncher) {
         this(gradleLauncher,
             gradleLauncher.getGradle().getServices().get(WorkerLeaseService.class),
