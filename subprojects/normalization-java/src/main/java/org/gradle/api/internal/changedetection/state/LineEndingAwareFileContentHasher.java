@@ -17,6 +17,8 @@
 package org.gradle.api.internal.changedetection.state;
 
 import org.gradle.internal.fingerprint.hashing.FileContentHasher;
+import org.gradle.internal.hash.FileContentType;
+import org.gradle.internal.hash.FileContentTypeCacheService;
 import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.hash.HashCode;
 import org.gradle.internal.hash.Hasher;
@@ -34,13 +36,13 @@ import java.io.File;
 public class LineEndingAwareFileContentHasher implements FileContentHasher {
     private final FileHasher lineEndingNormalizingHasher;
     private final ResourceSnapshotterCacheService cacheService;
-    private final SourceFileFilter sourceFileFilter;
+    private final FileContentTypeCacheService contentTypeCacheService;
     private final HashCode configurationHashCode;
 
-    public LineEndingAwareFileContentHasher(FileHasher lineEndingNormalizingHasher, ResourceSnapshotterCacheService cacheService, SourceFileFilter sourceFileFilter) {
+    public LineEndingAwareFileContentHasher(FileHasher lineEndingNormalizingHasher, ResourceSnapshotterCacheService cacheService, FileContentTypeCacheService contentTypeCacheService) {
         this.lineEndingNormalizingHasher = lineEndingNormalizingHasher;
         this.cacheService = cacheService;
-        this.sourceFileFilter = sourceFileFilter;
+        this.contentTypeCacheService = contentTypeCacheService;
         this.configurationHashCode = getConfigurationHashCode();
     }
 
@@ -53,13 +55,12 @@ public class LineEndingAwareFileContentHasher implements FileContentHasher {
     @Override
     public void appendConfigurationToHasher(Hasher hasher) {
         hasher.putString(getClass().getName());
-        sourceFileFilter.appendConfigurationToHasher(hasher);
     }
 
     @Nullable
     @Override
     public HashCode hash(RegularFileSnapshot snapshot) {
-        return sourceFileFilter.isSourceFile(snapshot.getAbsolutePath())
+        return contentTypeCacheService.getFileContentType(snapshot.getAbsolutePath(), snapshot.getHash()) == FileContentType.TEXT
             ? cacheService.hashFile(snapshot, s -> lineEndingNormalizingHasher.hash(new File(snapshot.getAbsolutePath())), configurationHashCode)
             : snapshot.getHash();
     }

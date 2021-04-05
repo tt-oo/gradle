@@ -30,7 +30,7 @@ public class FileContentTypeDetectingFileHasher extends AbstractFileHasher {
     public HashCode hash(File file) {
         FileContentTypeDetectingInputStream inputStream = new FileContentTypeDetectingInputStream(getDefaultInputStream(file));
         HashCode hashCode = hash(inputStream);
-        contentTypeDetectionService.storeContentType(hashCode, inputStream.getContentType());
+        contentTypeDetectionService.storeContentType(file.getAbsolutePath(), hashCode, inputStream.getContentType());
         return hashCode;
     }
 }

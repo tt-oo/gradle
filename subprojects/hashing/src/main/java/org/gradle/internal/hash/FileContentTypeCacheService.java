@@ -17,6 +17,6 @@
 package org.gradle.internal.hash;
 
 public interface FileContentTypeCacheService {
-    FileContentType getFileContentType(HashCode hashCode);
-    void storeContentType(HashCode hashCode, FileContentType contentType);
+    FileContentType getFileContentType(String path, HashCode hashCode);
+    void storeContentType(String path, HashCode hashCode, FileContentType contentType);
 }

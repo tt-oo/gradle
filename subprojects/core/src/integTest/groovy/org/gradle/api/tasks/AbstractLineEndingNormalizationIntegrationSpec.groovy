@@ -27,8 +27,9 @@ abstract class AbstractLineEndingNormalizationIntegrationSpec extends AbstractIn
     abstract void cleanWorkspace()
 
     @Unroll
-    def "tasks are not sensitive to line endings in known source files by default (#fileType files, #sensitivity.name() path sensitivity)"() {
+    def "tasks are not sensitive to line endings in text files by default (#sensitivity.name() path sensitivity)"() {
         createTaskWithNormalization(sensitivity)
+        def changingFile = file("foo/Changing.foo")
 
         buildFile << """
             taskWithInputs {
@@ -36,8 +37,7 @@ abstract class AbstractLineEndingNormalizationIntegrationSpec extends AbstractIn
                 outputFile = project.file("\${buildDir}/output.txt")
             }
         """
-        file("foo/Changing.${fileType}") << "\nhere's a line\nhere's another line\n\n"
-        file('foo/Changing.other') << "\nhere's a line\nhere's another line\n\n"
+        changingFile << changingFileContents
 
         when:
         execute("taskWithInputs")
@@ -46,7 +46,7 @@ abstract class AbstractLineEndingNormalizationIntegrationSpec extends AbstractIn
         executedAndNotSkipped(":taskWithInputs")
 
         when:
-        file("foo/Changing.${fileType}").text = file("foo/Changing.${fileType}").text.replaceAll('\\n', '\r\n')
+        changingFile.text = changingFileContents.replaceAll('\\n', '\r\n')
         cleanWorkspace()
         execute("taskWithInputs")
 
@@ -54,7 +54,15 @@ abstract class AbstractLineEndingNormalizationIntegrationSpec extends AbstractIn
         reused(":taskWithInputs")
 
         when:
-        file('foo/Changing.other').text = file('foo/Changing.other').text.replaceAll('\\n', '\r\n')
+        changingFile.text = changingFileContents.replaceAll('\\n', '\r')
+        cleanWorkspace()
+        execute("taskWithInputs")
+
+        then:
+        reused(":taskWithInputs")
+
+        when:
+        changingFile.text = changingFileContents.replaceAll('\\n', ' ')
         cleanWorkspace()
         execute("taskWithInputs")
 
@@ -62,7 +70,11 @@ abstract class AbstractLineEndingNormalizationIntegrationSpec extends AbstractIn
         executedAndNotSkipped(":taskWithInputs")
 
         where:
-        [fileType, sensitivity] << [['java', 'groovy', 'kt'], PathSensitivity.values()].combinations()
+        sensitivity << PathSensitivity.values()
+    }
+
+    private String getChangingFileContents() {
+        return "\nhere's a line\n\there's another line\n\n"
     }
 
     def reused(String taskPath) {

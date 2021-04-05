@@ -20,14 +20,12 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Infers whether a file is a binary file or not by checking if there is a NUL character
- * in the first 8000 bytes of the file.  This is based on the heuristic used by git:
- * https://git.kernel.org/pub/scm/git/git.git/tree/xdiff-interface.c?h=v2.30.0#n187
+ * Infers whether a file is a binary file or not by checking if there are any ASCII
+ * control characters in the file.  If so, then it is likely a binary file.
  */
 public class FileContentTypeDetectingInputStream extends InputStream {
     private final InputStream delegate;
-    private FileContentType contentType = FileContentType.BINARY;
-    long count;
+    private boolean controlCharactersFound;
 
     public FileContentTypeDetectingInputStream(InputStream delegate) {
         this.delegate = delegate;
@@ -36,13 +34,28 @@ public class FileContentTypeDetectingInputStream extends InputStream {
     @Override
     public int read() throws IOException {
         int next = delegate.read();
-        if (count++ < 8000 && next == 0) {
-            contentType = FileContentType.TEXT;
+        if (isControlCharacter(next)) {
+            controlCharactersFound = true;
         }
         return next;
     }
 
+    private boolean isControlCharacter(int c) {
+        return isInControlRange(c) && isNotCommonTextChar(c);
+    }
+
+    private boolean isInControlRange(int c) {
+        return c >= 0x00 && c < 0x20;
+    }
+
+    private boolean isNotCommonTextChar(int c) {
+        return c != 0x09  // tab
+            && c != 0x0a  // line feed
+            && c != 0x0c  // form feed
+            && c != 0x0d; // carriage return
+    }
+
     public FileContentType getContentType() {
-        return contentType;
+        return controlCharactersFound ? FileContentType.BINARY : FileContentType.TEXT;
     }
 }

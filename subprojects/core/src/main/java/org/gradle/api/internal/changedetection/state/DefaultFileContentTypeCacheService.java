@@ -29,12 +29,12 @@ public class DefaultFileContentTypeCacheService implements FileContentTypeCacheS
     }
 
     @Override
-    public FileContentType getFileContentType(HashCode hashCode) {
+    public FileContentType getFileContentType(String path, HashCode hashCode) {
         return cache.get(hashCode, () -> FileContentType.BINARY);
     }
 
     @Override
-    public void storeContentType(HashCode hashCode, FileContentType contentType) {
+    public void storeContentType(String path, HashCode hashCode, FileContentType contentType) {
         cache.put(hashCode, contentType);
     }
 }

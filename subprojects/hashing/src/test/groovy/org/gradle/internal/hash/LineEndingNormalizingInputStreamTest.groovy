@@ -16,16 +16,10 @@
 
 package org.gradle.internal.hash
 
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
 import spock.lang.Unroll
 
-
 class LineEndingNormalizingInputStreamTest extends Specification {
-    @Rule
-    TemporaryFolder tempDir = new TemporaryFolder()
-
     @Unroll
     def "can normalize line endings in input streams (eol = '#description')"() {
         def stream = inputStream("${eol}This is a line${eol}Another line${eol}${eol}Yet another line\nAnd one more\n\nAnd yet one more${eol}")

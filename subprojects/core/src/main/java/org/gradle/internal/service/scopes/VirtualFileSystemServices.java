@@ -29,12 +29,14 @@ import org.gradle.api.internal.cache.StringInterner;
 import org.gradle.api.internal.changedetection.state.BuildSessionScopeFileTimeStampInspector;
 import org.gradle.api.internal.changedetection.state.CachingFileHasher;
 import org.gradle.api.internal.changedetection.state.CrossBuildFileHashCache;
+import org.gradle.api.internal.changedetection.state.DefaultFileContentTypeCacheService;
 import org.gradle.api.internal.changedetection.state.DefaultResourceSnapshotterCacheService;
 import org.gradle.api.internal.changedetection.state.FileHasherStatistics;
 import org.gradle.api.internal.changedetection.state.GradleUserHomeScopeFileTimeStampInspector;
 import org.gradle.api.internal.changedetection.state.PropertiesFileFilter;
 import org.gradle.api.internal.changedetection.state.ResourceEntryFilter;
 import org.gradle.api.internal.changedetection.state.ResourceFilter;
+import org.gradle.api.internal.changedetection.state.SplitFileContentTypeCacheService;
 import org.gradle.internal.fingerprint.hashing.FileContentHasher;
 import org.gradle.api.internal.changedetection.state.ResourceSnapshotterCacheService;
 import org.gradle.api.internal.changedetection.state.SplitFileHasher;
@@ -73,7 +75,9 @@ import org.gradle.internal.fingerprint.impl.DefaultFileCollectionSnapshotter;
 import org.gradle.internal.fingerprint.impl.DefaultGenericFileTreeSnapshotter;
 import org.gradle.internal.fingerprint.impl.FileCollectionFingerprinterRegistrations;
 import org.gradle.api.internal.changedetection.state.LineEndingAwareFileContentHasher;
-import org.gradle.internal.hash.DefaultFileHasher;
+import org.gradle.internal.hash.FileContentType;
+import org.gradle.internal.hash.FileContentTypeCacheService;
+import org.gradle.internal.hash.FileContentTypeDetectingFileHasher;
 import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.hash.HashCode;
 import org.gradle.internal.hash.LineEndingNormalizationFileHasher;
@@ -81,6 +85,7 @@ import org.gradle.internal.hash.StreamHasher;
 import org.gradle.internal.nativeintegration.NativeCapabilities;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
 import org.gradle.internal.os.OperatingSystem;
+import org.gradle.internal.serialize.BaseSerializerFactory;
 import org.gradle.internal.serialize.HashCodeSerializer;
 import org.gradle.internal.service.ServiceRegistration;
 import org.gradle.internal.snapshot.CaseSensitivity;
@@ -101,7 +106,6 @@ import org.gradle.internal.watch.vfs.impl.DefaultWatchableFileSystemDetector;
 import org.gradle.internal.watch.vfs.impl.LocationsWrittenByCurrentBuild;
 import org.gradle.internal.watch.vfs.impl.WatchingNotSupportedVirtualFileSystem;
 import org.gradle.internal.watch.vfs.impl.WatchingVirtualFileSystem;
-import org.gradle.normalization.internal.DefaultSourceFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,9 +192,11 @@ public class VirtualFileSystemServices extends AbstractPluginServiceRegistry {
             FileSystem fileSystem,
             GradleUserHomeScopeFileTimeStampInspector fileTimeStampInspector,
             StreamHasher streamHasher,
-            StringInterner stringInterner
+            StringInterner stringInterner,
+            FileContentTypeCacheService fileContentTypeCacheService
         ) {
-            CachingFileHasher fileHasher = new CachingFileHasher(new DefaultFileHasher(streamHasher), fileStore, stringInterner, fileTimeStampInspector, "fileHashes", fileSystem, FILE_HASHER_MEMORY_CACHE_SIZE, statisticsCollector);
+            FileHasher contentTypeHasher = new FileContentTypeDetectingFileHasher(streamHasher, fileContentTypeCacheService);
+            CachingFileHasher fileHasher = new CachingFileHasher(contentTypeHasher, fileStore, stringInterner, fileTimeStampInspector, "fileHashes", fileSystem, FILE_HASHER_MEMORY_CACHE_SIZE, statisticsCollector);
             fileTimeStampInspector.attach(fileHasher);
             return fileHasher;
         }
@@ -323,6 +329,15 @@ public class VirtualFileSystemServices extends AbstractPluginServiceRegistry {
             return new DefaultResourceSnapshotterCacheService(resourceHashesCache);
         }
 
+        FileContentTypeCacheService createFileContentTypeCacheService(CrossBuildFileHashCache store) {
+            PersistentIndexedCache<HashCode, FileContentType> fileContentTypeCache = store.createCache(
+                PersistentIndexedCacheParameters.of("fileContentType", HashCode.class, new BaseSerializerFactory().getSerializerFor(FileContentType.class)),
+                800000,
+                true
+            );
+            return new DefaultFileContentTypeCacheService(fileContentTypeCache);
+        }
+
         ClasspathFingerprinter createClasspathFingerprinter(ResourceSnapshotterCacheService resourceSnapshotterCacheService, FileCollectionSnapshotter fileCollectionSnapshotter, StringInterner stringInterner) {
             return new DefaultClasspathFingerprinter(resourceSnapshotterCacheService, fileCollectionSnapshotter, ResourceFilter.FILTER_NOTHING, ResourceEntryFilter.FILTER_NOTHING, PropertiesFileFilter.FILTER_NOTHING, stringInterner);
         }
@@ -347,9 +362,11 @@ public class VirtualFileSystemServices extends AbstractPluginServiceRegistry {
             FileSystem fileSystem,
             StreamHasher streamHasher,
             StringInterner stringInterner,
-            FileHasherStatistics.Collector statisticsCollector
+            FileHasherStatistics.Collector statisticsCollector,
+            FileContentTypeCacheService fileContentTypeCacheService
         ) {
-            CachingFileHasher localHasher = new CachingFileHasher(new DefaultFileHasher(streamHasher), cacheAccess, stringInterner, fileTimeStampInspector, "fileHashes", fileSystem, FILE_HASHER_MEMORY_CACHE_SIZE, statisticsCollector);
+            FileHasher contentTypeHasher = new FileContentTypeDetectingFileHasher(streamHasher, fileContentTypeCacheService);
+            CachingFileHasher localHasher = new CachingFileHasher(contentTypeHasher, cacheAccess, stringInterner, fileTimeStampInspector, "fileHashes", fileSystem, FILE_HASHER_MEMORY_CACHE_SIZE, statisticsCollector);
             return new SplitFileHasher(globalHasher, localHasher, globalCacheLocations);
         }
 
@@ -395,10 +412,11 @@ public class VirtualFileSystemServices extends AbstractPluginServiceRegistry {
             StreamHasher streamHasher,
             StringInterner stringInterner,
             FileCollectionSnapshotter fileCollectionSnapshotter,
-            ResourceSnapshotterCacheService resourceSnapshotterCacheService
+            ResourceSnapshotterCacheService resourceSnapshotterCacheService,
+            FileContentTypeCacheService fileContentTypeCacheService
         ) {
             FileHasher lineEndingNormalizingHasher = new LineEndingNormalizationFileHasher(streamHasher);
-            FileContentHasher lineEndingAwareRegularFileHasher = new LineEndingAwareFileContentHasher(lineEndingNormalizingHasher, resourceSnapshotterCacheService, new DefaultSourceFileFilter());
+            FileContentHasher lineEndingAwareRegularFileHasher = new LineEndingAwareFileContentHasher(lineEndingNormalizingHasher, resourceSnapshotterCacheService, fileContentTypeCacheService);
             return new FileCollectionFingerprinterRegistrations(stringInterner, fileCollectionSnapshotter, lineEndingAwareRegularFileHasher);
         }
 
@@ -423,9 +441,27 @@ public class VirtualFileSystemServices extends AbstractPluginServiceRegistry {
             CrossBuildFileHashCache store,
             ResourceSnapshotterCacheService globalCache
         ) {
-            PersistentIndexedCache<HashCode, HashCode> resourceHashesCache = store.createCache(PersistentIndexedCacheParameters.of("resourceHashesCache", HashCode.class, new HashCodeSerializer()), 800000, true);
+            PersistentIndexedCache<HashCode, HashCode> resourceHashesCache = store.createCache(
+                PersistentIndexedCacheParameters.of("resourceHashesCache", HashCode.class, new HashCodeSerializer()),
+                800000,
+                true
+            );
             DefaultResourceSnapshotterCacheService localCache = new DefaultResourceSnapshotterCacheService(resourceHashesCache);
             return new SplitResourceSnapshotterCacheService(globalCache, localCache, globalCacheLocations);
+        }
+
+        FileContentTypeCacheService createFileContentTypeCacheService(
+            GlobalCacheLocations globalCacheLocations,
+            CrossBuildFileHashCache store,
+            FileContentTypeCacheService globalCache
+        ) {
+            PersistentIndexedCache<HashCode, FileContentType> fileContentTypeCache = store.createCache(
+                PersistentIndexedCacheParameters.of("fileContentType", HashCode.class, new BaseSerializerFactory().getSerializerFor(FileContentType.class)),
+                800000,
+                true
+            );
+            DefaultFileContentTypeCacheService localCache = new DefaultFileContentTypeCacheService(fileContentTypeCache);
+            return new SplitFileContentTypeCacheService(globalCache, localCache, globalCacheLocations);
         }
 
         CompileClasspathFingerprinter createCompileClasspathFingerprinter(ResourceSnapshotterCacheService resourceSnapshotterCacheService, FileCollectionSnapshotter fileCollectionSnapshotter, StringInterner stringInterner) {
