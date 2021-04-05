@@ -27,6 +27,7 @@ import org.gradle.internal.work.WorkerLeaseService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class GradleBuildController implements BuildController, Stoppable {
     private enum State {Created, Completed}
@@ -81,8 +82,9 @@ public class GradleBuildController implements BuildController, Stoppable {
                 T result = build.transform(launcher);
 
                 List<Throwable> failures = new ArrayList<>();
-                includedBuildControllers.finishBuild(failures);
-                launcher.finishBuild();
+                Consumer<Throwable> collector = failures::add;
+                includedBuildControllers.finishBuild(collector);
+                launcher.finishBuild(collector);
                 if (!failures.isEmpty()) {
                     throw exceptionAnalyser.transform(new MultipleBuildFailures(failures));
                 }

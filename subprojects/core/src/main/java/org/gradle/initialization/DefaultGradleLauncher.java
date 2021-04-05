@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class DefaultGradleLauncher implements GradleLauncher {
     private enum Stage {
@@ -123,9 +124,13 @@ public class DefaultGradleLauncher implements GradleLauncher {
     }
 
     @Override
-    public void finishBuild() {
+    public void finishBuild(Consumer<? super Throwable> collector) {
         if (stage != null) {
-            finishBuild(stage.getDisplayName(), null);
+            try {
+                finishBuild(stage.getDisplayName(), null);
+            } catch (Throwable t) {
+                collector.accept(t);
+            }
         }
     }
 
