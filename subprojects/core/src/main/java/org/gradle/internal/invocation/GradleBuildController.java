@@ -78,10 +78,18 @@ public class GradleBuildController implements BuildController, Stoppable {
         try {
             // TODO:pm Move this to RunAsBuildOperationBuildActionRunner when BuildOperationWorkerRegistry scope is changed
             return workerLeaseService.withLocks(Collections.singleton(workerLeaseService.getWorkerLease()), () -> {
-                GradleLauncher launcher = getLauncher();
-                T result = build.transform(launcher);
-
                 List<Throwable> failures = new ArrayList<>();
+
+                GradleLauncher launcher = getLauncher();
+                T result = null;
+                try {
+                    result = build.transform(launcher);
+                } catch (MultipleBuildFailures e) {
+                    failures.addAll(e.getCauses());
+                } catch (Throwable t) {
+                    failures.add(t);
+                }
+
                 Consumer<Throwable> collector = failures::add;
                 includedBuildControllers.finishBuild(collector);
                 launcher.finishBuild(collector);
