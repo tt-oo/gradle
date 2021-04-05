@@ -37,15 +37,14 @@ import java.util.function.Consumer;
 
 public class DefaultGradleLauncher implements GradleLauncher {
     private enum Stage {
-        LoadSettings, Configure, TaskGraph, RunTasks() {
-            @Override
-            String getDisplayName() {
-                return "Build";
-            }
-        }, Finished;
+        LoadSettings, Configure, TaskGraph, RunTasks, Finished;
 
         String getDisplayName() {
-            return name();
+            if (Configure.compareTo(this) >= 0) {
+                return "Configure";
+            } else {
+                return "Build";
+            }
         }
     }
 
